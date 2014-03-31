@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="stylesheets/pygment_trac.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
     <script src="javascripts/respond.js"></script>
+    <script src="javascripts/MarkerManager_min.js"></script>
     <!--[if lt IE 9]>
       <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -37,42 +38,122 @@
           <span class="credits left">Project maintained by <a href="https://github.com/baidumap">baidumap</a></span>
           <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></span>
         </div>
-
-        <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
-
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
-
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
-
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
-
-<h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
-
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
-
-<h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
-
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
-
-<h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
-
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
-
-<h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
-
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+        <div style="width:550px;height:450px;border:1px solid gray;" id="container"></div>
+        <div id="log" style="background:#000;color:red;position:absolute;left:580px;top:20px;width:200px;height:200px;"></div>
+        <button id="clearMarkers">clearMarkers</button>
+        <button id="show">show markers</button>
+        <button id="hide">hide markers</button>
+        <button id="toggle">toggle markers</button>
+        
       </section>
 
     </div>
     <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+  <script type="text/javascript">
+  var map = new BMap.Map("container");
+  var point = new BMap.Point(116.404, 39.915);
+  map.centerAndZoom(point,15);
+  map.enableScrollWheelZoom();
+
+  var padding = 200;
+  var mgr = new BMapLib.MarkerManager(map,{
+    borderPadding: padding
+    ,maxZoom: 18
+    ,trackMarkers: true
+  });
+
+    var markersConfig = [{minZoom: 1, maxZoom: 10, markerCount:80 }
+          ,{minZoom: 11, maxZoom: 12, markerCount:10 }
+          ,{minZoom: 13, maxZoom: 15, markerCount:150 }
+          ,{minZoom: 16, maxZoom: 17, markerCount:10 }
+          ,{minZoom: 18, maxZoom: 19, markerCount:100 }
+          ];
+  for(var i in markersConfig){
+      var t = markersConfig[i];
+      var mks = getRandomMarker(map,t.markerCount,padding);
+      mgr.addMarkers(mks,t.minZoom,t.maxZoom)
+   }
+    mgr.showMarkers();
+    log();
+    map.addEventListener("zoomend",function(){
+        log();
+      });
+  map.addEventListener("dragend",function(){
+        log();
+      });
+  $("clearMarkers").onclick = function(){
+    mgr.clearMarkers();
+    log();
+  }
+    $("show").onclick = function(){
+    mgr.show();
+    log();
+    }
+    $("hide").onclick = function(){
+      mgr.hide();
+      log();
+    }
+    $("toggle").onclick = function(){
+      mgr.toggle();
+      log();
+    }
+  /**
+     * 随机生成marker
+     * @param {Map} map 地图map对象
+     * @param {Number} num 要产生的marker的数量
+     * @param {Boolean} isInViewport 是否需要只在视口中的marker
+     * @return {Array} marker的数组集合
+     */
+  function getRandomMarker(map,num,borderPadding){
+    var container = map.getContainer()
+    , markers = []
+    , height = parseInt(container.offsetHeight,10) / 2  + borderPadding
+    , width = parseInt(container.offsetWidth,10) / 2  + borderPadding;
+
+    var center = map.getCenter(), pixel = map.pointToPixel(center);
+    var realBounds = mgr._getRealBounds();
+    //随机一个新的坐标，不超过地图+borderPadding范围
+    for(var i = num; i--;){
+      var w = width * Math.random(), h = height * Math.random();
+      var newPixel = { x : pixel.x + (Math.random() > 0.5 ? w : -w),
+               y : pixel.y + (Math.random() > 0.5 ? h : -h)}
+      , newPoint = map.pixelToPoint(newPixel);
+
+      var marker = new BMap.Marker(newPoint);
+
+      if(realBounds.containsPoint(newPoint)){
+        markers.push(marker);
+        (function(mk){
+          mk.addEventListener("dblclick",function(){
+              mgr.removeMarker(mk);
+              log();
+            });
+        })(marker);
+      }
+    }
+    return markers;
+  }
+  /**
+   * 创建div，便于显示调试信息
+   * @return none
+   *
+   */
+  function log(){
+     var str = "当前zoom"+ map.getZoom() +
+     "<div>地图上marker的数量" + mgr.getMarkerCount(map.getZoom())+ "</div>";
+    document.getElementById("log").innerHTML = "<h3>调试信息显示：</h3>"+ str;
+  }
+  /**
+   * 根据id获取dom元素
+   * @param {String} id 元素ID
+   * @return none
+   *
+   */
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  </script>
     
   </body>
 </html>
